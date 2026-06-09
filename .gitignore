@@ -1,0 +1,44 @@
+# Secrets
+.env
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Node
+node_modules/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# Lore temp
+.lore/tmp/
+
+# Lore local overrides (not for template)
+.lore/config.local.md
+SOURCES.local.md
+
+# Lore published artifacts (generated, not source)
+artifacts/*.published
+
+# Claude Code
+.claude/worktrees/
+
+# Local Claude memory (should stay local, not in template)
+.claude/memory/
+
+# Confluence publishing cache
+.lore/.confluence-cache/
+
+# SharePoint sync metadata
+*.ms-*
+~$*
