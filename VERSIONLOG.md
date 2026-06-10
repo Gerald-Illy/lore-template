@@ -12,7 +12,7 @@ All versions of the Lore template.
 - **`/setup` skill (`.claude/skills/setup/SKILL.md`):** Interactive wizard for adding, editing, removing, and validating sources. Guided type-specific prompts, connectivity validation, manifest initialization.
 - **Source Resolution in `/pull` (Phase 0):** Two-tier resolution — local SOURCES.md + external registries fetched and merged at runtime. Failure-tolerant (warn and proceed).
 - **`/pull web` scope:** Dedicated scope for pulling only web sources.
-- **Compliance sub-check in `/lore check`:** Grep-based pattern detection for company names, personal names, emails, instance URLs.
+- **`/setup update` subcommand:** Check for new or updated Lore skills, agents, rules, and refs against the plugin/template source. Presents a summary of what's new, what changed, and suggests safe updates to apply.
 
 ---
 

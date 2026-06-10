@@ -1,6 +1,6 @@
 ---
 name: setup
-description: "Configure Lore sources and project settings interactively. Usage: /setup [action]"
+description: "Configure Lore sources, project settings, and framework updates. Usage: /setup [action]"
 ---
 
 # Skill: /setup [action]
@@ -25,6 +25,7 @@ Actions:
   remove-source   remove a source from SOURCES.md
   validate        test connectivity to all configured sources
   config          edit .lore/config.md settings (branding, email, etc.)
+  update          check for new or updated Lore skills/agents/rules
 
 Examples:
   /setup
@@ -33,9 +34,11 @@ Examples:
   /setup add-source web "https://status.example.com"
   /setup validate
   /setup config
+  /setup update
 
 Tip: After adding a source, run /pull onboarding (first time) or /pull (daily).
      Use /setup validate to check if all sources are reachable.
+     Use /setup update periodically to stay current with Lore improvements.
 ```
 
 ---
@@ -223,6 +226,106 @@ Interactive editor for `.lore/config.md`:
 - Confluence publishing settings (base URL, space, email)
 - Branding (colors, fonts for /artifact)
 - Project metadata (name, team, stakeholders)
+
+---
+
+## /setup update
+
+Check if the Lore framework has new skills, extended existing ones, or updated rules/agents.
+Compares the installed state against the plugin/template source and presents a summary.
+
+### Step 1 — Determine Source
+
+Resolve the Lore framework source (in priority order):
+
+1. **Plugin installed** — check if `lore-plugin` is registered in `.claude/settings.json` or `.claude/settings.local.json` (command group or hook referencing `lore-plugin`). If yes: use the plugin's installed path as source.
+2. **Template repo** — fetch from `https://github.com/Gerald-Illy/lore-template.git` (always the canonical source for the Lore framework).
+3. **Manual** — if the template repo is unreachable: ask the user for an alternative path or URL.
+
+### Step 2 — Compare
+
+Compare the following areas between source (template/plugin) and local project:
+
+| Area | Compare | What to check |
+|------|---------|---------------|
+| `.claude/skills/` | Directories | New skills not present locally |
+| `.claude/skills/*/SKILL.md` | Content hash | Skills that have been extended or modified |
+| `.claude/agents/` | Directories | New agents not present locally |
+| `.claude/agents/*/AGENT.md` | Content hash | Agents that have been updated |
+| `.claude/rules/` | Files | New rules not present locally |
+| `.claude/rules/*.md` | Content hash | Rules that have been modified |
+| `.claude/refs/` | Files | New refs not present locally |
+| `.claude/refs/*.md` | Content hash | Refs that have been updated |
+
+**Ignore:**
+- `.lore/` (instance-specific state)
+- `knowledge/`, `log/`, `contributions/` (project content)
+- `SOURCES.md`, `OVERRIDES.md`, `CHANGELOG.md` (project-specific)
+- Any file with `{PROJECT_NAME}` placeholders vs filled-in values (template vs instance)
+
+### Step 3 — Summary
+
+Present findings grouped by category:
+
+```
+Lore Update Check – YYYY-MM-DD
+Source: lore-plugin v1.5.0 (or: lore-template @ abc1234)
+
+🆕 New (not installed locally):
+  • skill: /foo — [1-line description from SKILL.md frontmatter]
+  • agent: bar-agent — [1-line description from AGENT.md frontmatter]
+  • rule: baz.md — [1-line description or first heading]
+
+📝 Updated (source is newer):
+  • skill: /pull — [what changed: +2 phases, new retroactive mode, ...]
+  • rule: session-end.md — [what changed: added merge check section]
+  • ref: pull-framework.md — [what changed: added web source handling]
+
+✅ Up to date:
+  • 12 skills, 8 agents, 5 rules, 9 refs — no changes
+
+Summary: 2 new, 3 updated, 34 unchanged
+```
+
+### Step 4 — Suggest Actions
+
+For each new or updated item, suggest an action:
+
+```
+Suggested updates:
+
+1. [new] Install skill /foo
+   → Copy .claude/skills/foo/ from source
+   → Add to CLAUDE.md command table
+
+2. [updated] Update /pull skill
+   → Changes: added Phase 0 (source resolution), new /pull web scope
+   → ⚠ You have local modifications — review diff before applying
+
+3. [updated] Update session-end.md rule
+   → Changes: added merge check section
+   → Safe to apply (no local modifications)
+
+Apply all safe updates? [yes / pick specific / no]
+```
+
+### Step 5 — Apply (if user confirms)
+
+For each accepted update:
+
+1. **New items:** Copy from source to local project
+2. **Updated items (no local mods):** Replace with source version
+3. **Updated items (with local mods):** Show diff, ask user to confirm or merge manually
+4. **CLAUDE.md:** Update command/agent tables if new skills or agents were installed
+5. **VERSIONLOG.md:** Do NOT auto-update (user decides versioning)
+
+### Rules
+
+- Never auto-apply. Always show summary first, always ask.
+- Never overwrite local modifications without explicit confirmation.
+- If an updated skill has sections the user customized (e.g. project-specific signal hierarchy): warn before replacing.
+- If the source is unreachable: report and stop. Do not guess.
+- Show concrete diffs for updated files when the user asks "what changed?"
 
 ---
 
