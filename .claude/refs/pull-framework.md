@@ -5,6 +5,120 @@ Each agent references this framework and adds only its source-specific logic.
 
 ---
 
+## Source Resolution (before any pull)
+
+Before pull agents start, the orchestrating `/pull` skill resolves the full source set.
+
+### Steps
+
+1. **Read SOURCES.md** — local, always-available baseline
+2. **Find `source-registry` entries** — any section with Type = `source-registry`
+3. **Fetch each registry** — use appropriate method:
+   - Confluence page → Confluence API (via acli or MCP)
+   - HTTP URL → fetch content
+   - Local file path → read directly
+4. **Parse registry content** — attempt in order:
+   - Markdown table (match column headers: Site, Project, Space, URL, etc.)
+   - YAML block (key-value or list structure)
+   - JSON (array or object)
+   - Free-form text (heading + key-value heuristic)
+5. **Merge** — combine local + external into runtime source list
+6. **Report** — log which registries were fetched, what was found, any warnings
+
+### Merge Rules
+
+- **Local wins:** If SOURCES.md defines a source and an external registry also defines
+  one with the same identifier (Project key, Space key, repo URL), local takes precedence.
+- **Additions only from external:** External registries can add new sources to the runtime
+  set but cannot override or remove locally-defined sources.
+- **ID collision detection:** Same Project key or Space key from two different registries
+  → warn, take the first one found (registry order in SOURCES.md).
+
+### Failure Handling
+
+| Failure | Response |
+|---------|----------|
+| Registry URL unreachable | ⚠ Warn in pull output, proceed with local sources |
+| Registry content unparseable | ⚠ Warn with details (what was found, why it failed), skip registry |
+| Partial parse (some entries readable, some not) | Take readable entries, warn about skipped |
+| Empty registry | Note in pull output, no error |
+
+### Output
+
+The source resolution step produces a runtime source list used by all pull agents.
+This is NOT persisted as a file — it lives in the pull session only.
+
+Pull agents receive the merged set and treat all sources identically regardless of
+whether they came from SOURCES.md or an external registry.
+
+What gets logged:
+- Daily log entry notes which registries were consulted
+- Manifest updates record which sources were active during pull
+- Warnings appear in pull output (never silently swallowed)
+
+---
+
+## Web Source Handling
+
+Web sources are public URLs fetched live during each pull.
+They don't have a dedicated agent — the `/pull` orchestrator handles them directly.
+
+### Fetch Flow
+
+1. **Read URL list** from runtime source set (Type = `web`)
+2. **Fetch each URL** via WebFetch or HTTP
+3. **Convert** HTML → Markdown (strip nav, footer, ads — extract body content)
+4. **Apply Focus hint** — if provided, extract only the relevant section:
+   - Heading match (e.g. Focus = "Release Notes" → find that heading, take content until next same-level heading)
+   - Table match (e.g. Focus = "status table" → extract tables)
+   - If no Focus or Focus = "all" → take full page content
+5. **Delta check** — compare content hash against manifest (`web` section in `.lore/manifests/github.json` or dedicated `.lore/manifests/web.json`)
+6. **If changed:**
+   - Generate log entry with summary of what changed
+   - Apply knowledge derivation (same rules as all sources)
+   - Update manifest with new hash + timestamp
+7. **If unchanged:** skip, note in extraction receipt
+
+### Manifest Entry (per URL)
+
+```json
+{
+  "url": "https://example.com/status",
+  "name": "Platform Status",
+  "last_fetched": "2026-06-09T14:30:00Z",
+  "content_hash": "sha256:abc123...",
+  "last_changed": "2026-06-08T10:00:00Z",
+  "focus": "Current incidents"
+}
+```
+
+### Failure Handling
+
+| Failure | Response |
+|---------|----------|
+| URL unreachable (timeout, DNS, 5xx) | ⚠ Warn, skip this source, proceed with others |
+| 403/401 (auth required) | ⚠ Warn "URL requires authentication — not supported for web sources" |
+| Content empty or minimal (<50 chars) | ⚠ Warn "Page appears empty", skip |
+| Focus section not found on page | Warn, fall back to full page content |
+
+### What web sources are good for
+
+- Status pages (is the platform healthy?)
+- Public changelogs and release notes
+- Partner/vendor documentation that changes
+- Public roadmaps or announcement pages
+- API documentation (breaking changes)
+- Any public page with project-relevant live state
+
+### What web sources are NOT for
+
+- Authenticated content (use Confluence/Jira/SharePoint sources instead)
+- APIs returning JSON (that's a different integration — not yet supported)
+- Pages that require JavaScript rendering (static HTML only)
+- High-frequency pages (real-time dashboards — too noisy)
+
+---
+
 ## Always Read First (shared base)
 
 Every pull agent MUST read these before any operation:

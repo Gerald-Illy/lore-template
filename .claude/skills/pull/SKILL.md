@@ -25,6 +25,7 @@ Scopes:
   jira                 only Jira
   confluence           only Confluence
   github               only GitHub repos
+  web                  only web sources (live URL fetch)
   onboarding           first pull — establishes the baseline (run once)
   on-demand [name]     single on-demand source from SOURCES.md
   retroactive missed "[desc]"       add missed content from existing source
@@ -39,8 +40,9 @@ Examples:
   /pull retroactive missed "M2 scope decision from April Confluence page"
   /pull retroactive new-source "Partner SharePoint — Telekom project docs"
 
-Phases: manifest check → read changes → write log → decision scan → consistency check → update manifests → condensation check → state file
+Phases: source resolution → manifest check → read changes → write log → decision scan → consistency check → update manifests → condensation check → state file
 Tip: Sources are pulled in parallel. Consistency check always runs after.
+     Source registries (external) are fetched first — teams can maintain their own sources.
      Use /ask inconsistencies after pull to review any new conflicts.
 ```
 
@@ -54,6 +56,7 @@ If not found: stop and say "No repository path found in SOURCES.md."
 /pull jira             → only jira
 /pull confluence       → only confluence
 /pull github           → only github repos
+/pull web              → only web sources
 /pull onboarding       → first pull – baseline mode
 /pull on-demand [name] → single on-demand source from SOURCES.md
 /pull retroactive missed "[desc]"     → add missed content (see retroactive mode below)
@@ -62,6 +65,7 @@ If not found: stop and say "No repository path found in SOURCES.md."
 ---
 
 ## Refs (load before pull)
+- `.claude/refs/pull-framework.md` — source resolution, knowledge derivation, output contract
 - `.claude/refs/extraction-quality.md` — inclusion checklists, thoroughness, receipts
 - `.claude/refs/log-writing.md` — daily log format and template
 - `.claude/refs/log-links.md` — clickable source references
@@ -69,6 +73,28 @@ If not found: stop and say "No repository path found in SOURCES.md."
 - `.claude/refs/ai-inference.md` — AI pattern recognition rules
 - `.claude/refs/consistency-check.md` — consistency check spec (Phase 4)
 - `.claude/refs/decision-impact-scan.md` — decision → knowledge state cross-check (Phase 3b)
+
+---
+
+## Phase 0 – Source Resolution
+
+Before any pull agent starts, resolve the full source set:
+
+1. Read SOURCES.md (local baseline — always present)
+2. Find `source-registry` entries (Type = `source-registry`)
+3. Fetch each registry (Confluence API, HTTP, local file)
+4. Parse content (auto-detect: markdown table, YAML, JSON, free-form)
+5. Merge: local sources + external sources → runtime source list
+6. Report: which registries consulted, what was found, warnings
+
+**Rules:**
+- Local sources win on ID collision
+- External registries add sources, never override or remove local ones
+- If a registry is unreachable or unparseable: warn and proceed with local sources
+- Warnings go into pull output — never silently swallowed
+
+The merged runtime source list is used by all subsequent phases.
+Pull agents cannot distinguish local from external sources — they treat all identically.
 
 ---
 
