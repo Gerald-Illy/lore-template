@@ -78,6 +78,7 @@ see `.claude/refs/lore-reference.md`.
 | `/briefing [ws]` | Operational briefing (delivery lead, stream leads) |
 | `/escalate [ID]` | Draft escalation to owner |
 | `/override "[x]" "[y]"` | Correct wrong information |
+| `/setup [action]` | Configure sources and project settings interactively |
 | `/lore [action]` | Develop, test and improve the Lore framework |
 | `/atlassian` | Query Jira/Confluence via acli CLI |
 | `/publish` | Publish to Confluence |
